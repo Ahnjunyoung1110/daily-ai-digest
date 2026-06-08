@@ -1,0 +1,12 @@
+[project]
+name = "daily-ai-digest"
+version = "0.1.0"
+description = "Hermes cron collector for the Daily AI Digest"
+requires-python = ">=3.11"
+dependencies = [
+  "feedparser>=6.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
