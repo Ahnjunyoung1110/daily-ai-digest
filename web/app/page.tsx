@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import { getPosts, getTopics } from "@/lib/notion";
 import { PostsSection } from "@/components/PostsSection";
 
-// ISR: 1시간마다 재생성
-export const revalidate = 3600;
+// ISR: 1분마다 재생성
+export const revalidate = 60;
 
 export default async function HomePage() {
   const posts = await getPosts();

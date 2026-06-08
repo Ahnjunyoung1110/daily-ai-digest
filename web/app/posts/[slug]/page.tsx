@@ -7,8 +7,8 @@ import { NotionRenderer } from "@/components/NotionRenderer";
 import { getPosts, getPostBySlug, getPostBlocks } from "@/lib/notion";
 import type { Metadata } from "next";
 
-// ISR: 1시간마다 재생성
-export const revalidate = 3600;
+// ISR: 1분마다 재생성
+export const revalidate = 60;
 
 interface PageProps {
   params: Promise<{ slug: string }>;
