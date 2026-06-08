@@ -73,16 +73,17 @@ Notion API 연동 레이어와 공통 레이아웃 컴포넌트를 만듭니다.
 **작업 항목**
 
 **타입 정의 (`types/notion.ts`)**
-- [ ] `NotionPost` 타입 정의 (id, title, category, tags, publishedDate, status, slug)
+- [ ] `NotionPost` 타입 정의 (id, title, category, tags, publishedDate, status, slug, important)
 - [ ] `NotionBlock` 타입 정의 (Notion 페이지 블록 구조)
 
 **Notion API 모듈 (`lib/notion.ts`)**
 - [ ] Notion 클라이언트 초기화 (`new Client({ auth: NOTION_API_KEY })`)
 - [ ] `getPosts()`: Status=`발행됨` 필터, 발행일 내림차순 정렬로 글 목록 조회
+- [ ] `getImportantPosts()`: Notion checkbox `중요=true`인 현재 중요 글 3~5개 조회
 - [ ] `getPostBySlug(slug)`: slug(페이지 ID 또는 고유값)로 단일 글 조회
 - [ ] `getPostBlocks(pageId)`: 페이지의 블록 콘텐츠 조회
 - [ ] `getCategories()`: 카테고리 목록 추출
-- [ ] Notion API 응답을 `NotionPost` 타입으로 변환하는 매핑 함수 작성
+- [ ] Notion API 응답을 `NotionPost` 타입으로 변환하는 매핑 함수 작성 (`중요` checkbox → `important: boolean`)
 
 **공통 레이아웃 컴포넌트**
 - [ ] `components/layout/Header.tsx`: 사이트명, 네비게이션 링크
@@ -92,6 +93,7 @@ Notion API 연동 레이어와 공통 레이아웃 컴포넌트를 만듭니다.
 **완료 기준**
 
 - [ ] `getPosts()` 호출 시 Notion DB에서 발행된 글 목록이 반환됨
+- [ ] `getImportantPosts()` 호출 시 `중요=true` 글이 3~5개 범위로 반환됨
 - [ ] `getPostBlocks()` 호출 시 페이지 블록 배열이 반환됨
 - [ ] `Header`, `Footer`가 모든 페이지에 렌더링됨
 - [ ] TypeScript 컴파일 오류 없음
@@ -111,8 +113,9 @@ Phase 1에서 완성된 API 모듈과 레이아웃을 기반으로, 사용자가
 **글 목록 페이지 (`app/page.tsx`)**
 - [ ] `getPosts()` 호출 후 ISR 설정 (`revalidate: 3600`)
 - [ ] `PostCard` 컴포넌트 작성 (`components/PostCard.tsx`)
-  - 제목, 카테고리 배지, 태그, 발행일 표시
+  - 제목, 카테고리 배지, 태그, 발행일, 중요 배지 표시
   - 글 상세 페이지 링크 연결
+- [ ] `중요=true` 글을 홈 최상단 중요 섹션에 먼저 표시
 - [ ] 글 목록 그리드 레이아웃 구성 (반응형: 1열 → 2열 → 3열)
 - [ ] 빈 상태(글이 없을 때) UI 처리
 - [ ] 페이지네이션 구현 (또는 무한 스크롤 선택)
@@ -138,7 +141,7 @@ Phase 1에서 완성된 API 모듈과 레이아웃을 기반으로, 사용자가
 
 **완료 기준**
 
-- [ ] 홈 페이지에서 발행된 글 목록이 정상 표시됨
+- [ ] 홈 페이지에서 `중요=true` 섹션과 발행된 글 목록이 정상 표시됨
 - [ ] 글 카드 클릭 시 상세 페이지로 이동됨
 - [ ] Notion 페이지 블록이 웹에서 올바르게 렌더링됨
 - [ ] 이미지가 `next/image`로 최적화되어 표시됨

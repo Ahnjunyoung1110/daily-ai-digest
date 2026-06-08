@@ -11,7 +11,7 @@ This project exists because the collector is no longer a one-off file under the 
 3. Normalizes every selected item into a JSON shape consumed by a Hermes cron prompt.
 3. Emits ASCII-safe JSON to stdout for the cron scheduler.
 4. Writes the full UTF-8 raw JSON to `C:/Users/gsnp/AppData/Local/hermes/daily_ai_digest/`.
-5. Syncs item rows/pages to Notion with Korean titles, detailed page bodies, and `Canonical Key` based upsert when `scripts/notion_digest_sync.py` is run.
+5. Syncs item rows/pages to Notion with Korean titles, detailed page bodies, `Canonical Key` based upsert, and a `중요` checkbox for the current 3-5 featured AI/IT items when `scripts/notion_digest_sync.py` is run.
 6. Tracks seen/selected/digest-sent state in the local SQLite ledger.
 7. Logs parser diagnostics to `C:/Users/gsnp/AppData/Local/hermes/logs/daily_ai_digest.log`.
 
@@ -29,6 +29,15 @@ The old default-profile script path remains only as a compatibility shim:
 `C:/Users/gsnp/AppData/Local/hermes/scripts/daily_ai_digest_collect.py`.
 Do not make source edits there.
 
+Notion follow-up job in the `cron-it` profile:
+
+- Job ID: `c32e07833ba2`
+- Name: `Daily AI Digest → Notion Sync+Summary — 08:55 KST`
+- Schedule: `55 8 * * *`
+- Workdir: `C:/Users/gsnp/Desktop/Project/daily-ai-digest`
+- It enriches raw items into Korean fields, marks exactly 3-5 current items as `important: true`, and `notion_digest_sync.py` maps that to the Notion checkbox property named `중요`.
+- The prompt must not generate temporary enrichment scripts such as `tmp_notion_enrich.py`, call external translation services, or embed large JSON in fragile shell heredocs; use direct LLM enrichment plus the checked-in sync script.
+
 ## Quick commands
 
 From this project root:
@@ -42,6 +51,16 @@ python scripts/daily_ai_digest_collect.py --html-only --include-stale --max-item
 ```
 
 Use `--source "Exact Source Name"` for fast parser debugging. Avoid full runs unless needed because GitHub unauthenticated search intentionally sleeps between queries to avoid rate limits.
+
+For Notion sync checks:
+
+```bash
+python scripts/notion_ensure_schema.py
+python scripts/notion_digest_sync.py --json-path <raw_or_enriched_json_path> --dry-run
+python scripts/notion_digest_sync.py --json-path <enriched_json_path> --no-update-page-body
+```
+
+`notion_digest_sync.py` ensures both `Canonical Key` and `중요`. During live sync it normalizes the important flags to 3-5 current items and clears stale `중요=true` pages outside the current sync set.
 
 ## Important output contract
 
