@@ -32,6 +32,8 @@
 | `Published` | date | 발행일 |
 | `Status` | select | 상태: `초안` / `발행됨` |
 | `Content` | page content | 본문 (Notion 페이지 블록) |
+| `중요` | checkbox | 프론트 상단 노출용 중요 AI/IT 이슈 여부. 수집/동기화 때 현재 item 중 3~5개만 체크되며 stale 체크는 sync에서 해제 |
+| `중요도` | number | 수집기 `score_item()` 원본 점수 (0~100+). source_authority + popularity + topic_relevance + freshness + penalty 합산 |
 
 ---
 
@@ -39,7 +41,8 @@
 
 ### 4.1 글 목록 (홈)
 - 최근 발행된 글 목록 표시 (`Status = 발행됨` 필터)
-- 제목, 카테고리, 태그, 발행일 표시
+- `중요=true` 글을 별도 섹션이나 상단 카드로 우선 표시
+- 제목, 카테고리, 태그, 발행일, 중요 여부 표시
 - 페이지네이션 또는 무한 스크롤
 
 ### 4.2 검색 기능
@@ -75,6 +78,7 @@
 
 ### 홈 (`/`)
 - 히어로 섹션: 사이트 소개 문구
+- 중요 섹션: Notion `중요=true` 글 3~5개를 최상단 노출
 - 글 카드 그리드: 최신순 정렬
 - 카테고리 필터 탭
 
@@ -93,7 +97,7 @@
 
 | 기능 | MVP 포함 | 비고 |
 |------|----------|------|
-| Notion API 연동 | ✅ | |
+| Notion API 연동 | ✅ | `중요` checkbox 매핑 포함 |
 | 글 목록 페이지 | ✅ | |
 | 글 상세 페이지 | ✅ | |
 | 기본 스타일링 | ✅ | |
@@ -115,11 +119,11 @@
 
 ### 2단계: Notion API 연동
 - `lib/notion.ts`: Notion 클라이언트 초기화
-- 데이터베이스 쿼리 함수 구현 (`getPosts`, `getPostBySlug`)
+- 데이터베이스 쿼리 함수 구현 (`getPosts`, `getImportantPosts`, `getPostBySlug`)
 - 블록 컨텐츠 조회 함수 구현 (`getPostContent`)
 
 ### 3단계: 글 목록 페이지 구현
-- `app/page.tsx`: 홈 페이지 (SSG)
+- `app/page.tsx`: 홈 페이지 (SSG), `중요=true` 상단 섹션 포함
 - `components/PostCard.tsx`: 글 카드 컴포넌트
 - `components/CategoryFilter.tsx`: 카테고리 필터 컴포넌트
 

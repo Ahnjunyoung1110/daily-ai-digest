@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 프로젝트 개요
 
-Hermes 크론 스케줄러용 AI/LLM 콘텐츠 수집기. RSS, API, HTML 파싱으로 다수 출처에서 데이터 수집 → JSON 정규화 → 매일 08:45 KST 한국어 Telegram 다이제스트 발송. SQLite 레저로 중복 추적, Notion DB에 아이템 동기화.
+Hermes 크론 스케줄러용 AI/LLM 콘텐츠 수집기. RSS, API, HTML 파싱으로 다수 출처에서 데이터 수집 → JSON 정규화 → 매일 08:45 KST 한국어 Telegram 다이제스트 발송. SQLite 레저로 중복 추적, Notion DB에 아이템 동기화. 08:55 KST cron-it 후속 job은 raw JSON을 한국어 필드로 enrich하고, 현재 중요 AI/IT 항목 3~5개를 Notion `중요` 체크박스로 표시합니다.
 
 ## 명령어
 
@@ -24,10 +24,11 @@ python scripts/mark_digest_sent.py
 
 # Notion 스키마 검증 및 동기화
 python scripts/notion_ensure_schema.py
-python scripts/notion_digest_sync.py
+python scripts/notion_digest_sync.py --json-path <raw_or_enriched_json_path>
 
 # 테스트
 python -m pytest tests/
+python -m pytest tests/test_notion_page_content.py -v
 
 # 구문 검사 (모든 모듈)
 python -m py_compile src/daily_ai_digest/collector.py src/daily_ai_digest/config.py src/daily_ai_digest/sources.py src/daily_ai_digest/fetch.py src/daily_ai_digest/output.py src/daily_ai_digest/dates.py src/daily_ai_digest/ledger.py src/daily_ai_digest/notion_sync.py src/daily_ai_digest/parsers/rss.py src/daily_ai_digest/parsers/html.py scripts/daily_ai_digest_collect.py
@@ -58,7 +59,7 @@ python -m py_compile src/daily_ai_digest/collector.py src/daily_ai_digest/config
 | `dates.py` | `parse_date`, `parse_loose_date`, `parse_date_from_url`, `enrich_html_dates` |
 | `output.py` | `make_item`, `score_item` (v2), `dedupe`, `filter_items`, `build_result`, 텍스트 유틸 |
 | `ledger.py` | SQLite `seen_items` 테이블 — canonical_key 기준 seen/selected/notion 추적 |
-| `notion_sync.py` | Notion DB upsert — 한국어 title_ko/summary_ko 필드, 페이지 바디 생성 |
+| `notion_sync.py` | Notion DB upsert — 한국어 title_ko/summary_ko 필드, 페이지 바디 생성, `Canonical Key`와 `중요` 체크박스 스키마 보장, stale 중요 체크 해제 |
 | `parsers/rss.py` | `collect_rss`, `collect_hn`, `collect_github` |
 | `parsers/html.py` | `extract_anchor_cards`, `extract_article_cards`, 사이트별 파서 6개, `collect_html` |
 
@@ -132,8 +133,11 @@ SOURCE_CLASS_THRESHOLDS: official=40, vendor_blog=45, community=55, repo=50, res
 4. **스모크 테스트 우선**: 전체 실행은 GitHub Search 슬립(7초/요청)으로 느림
 5. **레저 테스트 격리**: 테스트 시 `--no-ledger` 사용 — 프로덕션 SQLite 오염 방지
 6. **`digest_sent_at` 설정 금지**: collector가 직접 설정하지 않음. `scripts/mark_digest_sent.py`만 설정
-7. **Notion 한국어 필드**: `title_ko`, `summary_ko` 등 한국어 우선 필드 사용
-8. **Hermes 호환 shim 편집 금지**: `C:/Users/gsnp/AppData/Local/hermes/scripts/` 경로 수정 금지
+7. **Notion 한국어 필드**: `title_ko`, `summary_ko`, `key_points_ko`, `why_it_matters_ko`, `action_items_ko` 등 한국어 우선 필드 사용
+8. **Notion 중요 체크박스**: `important: true`는 Notion property `중요` 체크박스로 반영. 매 sync마다 현재 item 중 3~5개만 체크되도록 보장하고 stale 체크는 해제
+9. **Notion 중요도 숫자 필드**: `item["score"]`(수집기 `score_item()` 원본 점수)를 Notion property `중요도`(number 타입)에 그대로 기록. 변환 없이 raw score 사용 (범위 0~100+)
+10. **cron-it enrichment 안전성**: 임시 번역 스크립트, 외부 번역 API, 대형 JSON heredoc/fragile shell quoting 금지. 직접 LLM enrichment 후 checked-in script 실행
+11. **Hermes 호환 shim 편집 금지**: `C:/Users/gsnp/AppData/Local/hermes/scripts/` 경로 수정 금지
 
 ## 참고 문서
 
