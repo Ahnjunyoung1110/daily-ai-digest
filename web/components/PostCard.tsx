@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, StarIcon } from "lucide-react";
 import {
   Card,
   CardHeader,
@@ -22,19 +22,35 @@ function formatDate(dateStr: string | null): string {
 
 interface PostCardProps {
   post: NotionPost;
+  highlighted?: boolean; // 중요 섹션 카드 강조 스타일
 }
 
 // 글 목록 카드 컴포넌트
-export function PostCard({ post }: PostCardProps) {
+export function PostCard({ post, highlighted = false }: PostCardProps) {
   // "Daily AI Digest" 태그는 카드에서 제외 (모든 글에 공통으로 있어 의미 없음)
   const displayTags = post.tags.filter((t) => t !== "Daily AI Digest").slice(0, 3);
 
   return (
     <Link href={`/posts/${post.slug}`} className="block group h-full">
-      <Card className="h-full flex flex-col transition-shadow hover:shadow-md">
+      <Card
+        className={[
+          "h-full flex flex-col transition-shadow hover:shadow-md",
+          highlighted
+            ? "border-yellow-400 dark:border-yellow-500 ring-1 ring-yellow-400/40 dark:ring-yellow-500/30"
+            : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+      >
         <CardHeader className="pb-2">
-          {/* 토픽 배지 + 출처 */}
+          {/* 중요 배지 (강조 카드만) + 토픽 배지 + 출처 */}
           <div className="flex items-center gap-2 mb-2 flex-wrap">
+            {highlighted && (
+              <Badge className="text-xs bg-yellow-400 text-yellow-900 dark:bg-yellow-500 dark:text-yellow-950 gap-1 border-0">
+                <StarIcon className="w-3 h-3" />
+                중요
+              </Badge>
+            )}
             {post.topic && post.topic !== "미분류" && (
               <Badge variant="secondary" className="text-xs">
                 {post.topic}
