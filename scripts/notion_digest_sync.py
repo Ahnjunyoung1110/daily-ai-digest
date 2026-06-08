@@ -51,6 +51,8 @@ def main() -> None:
     parser.add_argument("--no-ensure-schema", action="store_true", help="Canonical Key DB 속성 자동 생성/확인을 건너뜀")
     parser.add_argument("--no-update-page-body", action="store_true", help="기존 Notion page children 갱신을 건너뜀")
     parser.add_argument("--limit", type=int, default=None, metavar="N", help="동기화할 최대 아이템 수")
+    parser.add_argument("--top-n", type=int, default=30, metavar="N",
+                        help="중요도 상위 N개만 동기화 (기본값: 30, None으로 비활성화 불가 — 0 입력 시 제한 없음)")
     parser.add_argument(
         "--database-id",
         default=DEFAULT_DB_ID,
@@ -106,6 +108,7 @@ def main() -> None:
         f"dry_run={args.dry_run}, limit={args.limit}"
     )
 
+    top_n_value: int | None = args.top_n if args.top_n and args.top_n > 0 else None
     try:
         result = sync(
             raw_json=raw_json,
@@ -113,6 +116,7 @@ def main() -> None:
             token=token,
             dry_run=args.dry_run,
             limit=args.limit,
+            top_n=top_n_value,
             ensure_schema=not args.no_ensure_schema,
             update_page_body=not args.no_update_page_body,
         )
