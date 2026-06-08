@@ -11,6 +11,9 @@ export interface NotionPost {
   link: string | null;   // 원문 링크 url
   collectedDate: string | null; // 수집일 date (YYYY-MM-DD)
   canonicalKey: string;  // Canonical Key — 고유 식별자
+  important: boolean;    // 중요 checkbox — 상단 강조 섹션 표시 여부
+  importance: number;    // 중요도 number — 숫자 기준 정렬용 (미설정 시 0)
+  status: string;        // 상태 select (수집완료 / 번역필요) — 관리자 대시보드용
 }
 
 // Notion rich_text 아이템

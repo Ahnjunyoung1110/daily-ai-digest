@@ -1,7 +1,7 @@
 /**
  * Notion API 클라이언트 레이어
  * 실제 DB 스키마: src/daily_ai_digest/notion_sync.py make_page_properties() 기준
- * 프로퍼티 이름은 모두 한국어 리터럴 (제목/한줄요약/토픽/태그/출처/링크/수집일/상태)
+ * 프로퍼티 이름은 모두 한국어 리터럴 (제목/한줄요약/토픽/태그/출처/링크/수집일/상태/중요/중요도)
  */
 import { Client, isFullPage } from "@notionhq/client";
 import type { NotionPost, NotionBlock } from "@/types/notion";
@@ -79,6 +79,15 @@ function mapPage(page: { id: string; properties: Record<string, any> }): NotionP
   // Canonical Key (rich_text 타입) — 고유 식별자
   const canonicalKey = extractRichText(props["Canonical Key"]?.rich_text ?? []);
 
+  // 중요 (checkbox 타입) — 상단 강조 섹션 표시용
+  const important: boolean = props["중요"]?.checkbox ?? false;
+
+  // 중요도 (number 타입) — 숫자 기준 정렬용 (Notion DB 미반영 시 0으로 안전 처리)
+  const importance: number = props["중요도"]?.number ?? 0;
+
+  // 상태 (select 타입) — 관리자 대시보드용
+  const status: string = props["상태"]?.select?.name ?? "";
+
   return {
     id: page.id,
     slug: withoutDashes(page.id),
@@ -90,16 +99,17 @@ function mapPage(page: { id: string; properties: Record<string, any> }): NotionP
     link,
     collectedDate,
     canonicalKey,
+    important,
+    importance,
+    status,
   };
 }
 
 /**
- * 발행된 글 목록 조회
- * 필터: 상태 = "수집완료"
- * 정렬: 수집일 내림차순 (최신순)
- * 최대 500개 (페이지네이션 포함)
+ * Notion DB 쿼리 공통 헬퍼 (페이지네이션 포함, 최대 500개)
+ * statusFilter가 없으면 전체 조회 (관리자용)
  */
-export async function getPosts(): Promise<NotionPost[]> {
+async function queryPosts(statusFilter?: string): Promise<NotionPost[]> {
   const { dbId } = getEnv();
   const client = getClient();
   const posts: NotionPost[] = [];
@@ -108,10 +118,14 @@ export async function getPosts(): Promise<NotionPost[]> {
   do {
     const response = await client.databases.query({
       database_id: dbId,
-      filter: {
-        property: "상태",
-        select: { equals: "수집완료" },
-      },
+      ...(statusFilter
+        ? {
+            filter: {
+              property: "상태",
+              select: { equals: statusFilter },
+            },
+          }
+        : {}),
       sorts: [{ property: "수집일", direction: "descending" }],
       page_size: 100,
       ...(cursor ? { start_cursor: cursor } : {}),
@@ -127,6 +141,25 @@ export async function getPosts(): Promise<NotionPost[]> {
   } while (cursor && posts.length < 500);
 
   return posts;
+}
+
+/**
+ * 발행된 글 목록 조회
+ * 필터: 상태 = "수집완료"
+ * 정렬: 수집일 내림차순 (최신순)
+ * 최대 500개 (페이지네이션 포함)
+ */
+export async function getPosts(): Promise<NotionPost[]> {
+  return queryPosts("수집완료");
+}
+
+/**
+ * 전체 글 목록 조회 (관리자 대시보드용)
+ * 필터 없음 — 번역필요 포함 전체
+ * 정렬: 수집일 내림차순
+ */
+export async function getAllPosts(): Promise<NotionPost[]> {
+  return queryPosts();
 }
 
 /**
