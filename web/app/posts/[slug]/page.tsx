@@ -4,6 +4,8 @@ import { ArrowLeftIcon, ExternalLinkIcon, CalendarIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { NotionRenderer } from "@/components/NotionRenderer";
+import { StarRating } from "@/components/StarRating";
+import { formatDate } from "@/lib/format";
 import { getPosts, getPostBySlug, getPostBlocks } from "@/lib/notion";
 import type { Metadata } from "next";
 
@@ -34,16 +36,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       type: "article",
     },
   };
-}
-
-// 수집일 한국어 포맷
-function formatDate(dateStr: string | null): string {
-  if (!dateStr) return "";
-  return new Date(dateStr).toLocaleDateString("ko-KR", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
 }
 
 export default async function PostPage({ params }: PageProps) {
@@ -98,13 +90,33 @@ export default async function PostPage({ params }: PageProps) {
 
         {/* 메타 정보 */}
         <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-          {post.collectedDate && (
-            <div className="flex items-center gap-1">
-              <CalendarIcon className="w-4 h-4" />
-              <span>{formatDate(post.collectedDate)}</span>
-            </div>
-          )}
+          {/* 날짜 블록 (게시일 + 수집일) */}
+          <div className="flex flex-col gap-0.5">
+            {post.publishedDate ? (
+              <>
+                <div className="flex items-center gap-1">
+                  <CalendarIcon className="w-4 h-4" />
+                  <span>게시 {formatDate(post.publishedDate)}</span>
+                </div>
+                {post.collectedDate && (
+                  <div className="pl-5 text-xs text-muted-foreground/70">
+                    수집 {formatDate(post.collectedDate)}
+                  </div>
+                )}
+              </>
+            ) : (
+              post.collectedDate && (
+                <div className="flex items-center gap-1">
+                  <CalendarIcon className="w-4 h-4" />
+                  <span>수집 {formatDate(post.collectedDate)}</span>
+                </div>
+              )
+            )}
+          </div>
+          {/* 출처 */}
           {post.source && <span>{post.source}</span>}
+          {/* 별점 */}
+          <StarRating score={post.importance} size="md" />
         </div>
 
         {/* 원문 바로가기 버튼 */}

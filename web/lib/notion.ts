@@ -1,7 +1,7 @@
 /**
  * Notion API 클라이언트 레이어
  * 실제 DB 스키마: src/daily_ai_digest/notion_sync.py make_page_properties() 기준
- * 프로퍼티 이름은 모두 한국어 리터럴 (제목/한줄요약/토픽/태그/출처/링크/수집일/상태/중요/중요도)
+ * 프로퍼티 이름은 모두 한국어 리터럴 (제목/한줄요약/토픽/태그/출처/링크/수집일/게시일/상태/중요/중요도)
  */
 import { Client, isFullPage } from "@notionhq/client";
 import type { NotionPost, NotionBlock } from "@/types/notion";
@@ -76,6 +76,9 @@ function mapPage(page: { id: string; properties: Record<string, any> }): NotionP
   // 수집일 (date 타입) — YYYY-MM-DD
   const collectedDate: string | null = props["수집일"]?.date?.start ?? null;
 
+  // 게시일 (date 타입) — Notion DB 업로드일. 백엔드 미반영 시 null
+  const publishedDate: string | null = props["게시일"]?.date?.start ?? null;
+
   // Canonical Key (rich_text 타입) — 고유 식별자
   const canonicalKey = extractRichText(props["Canonical Key"]?.rich_text ?? []);
 
@@ -98,6 +101,7 @@ function mapPage(page: { id: string; properties: Record<string, any> }): NotionP
     source,
     link,
     collectedDate,
+    publishedDate,
     canonicalKey,
     important,
     importance,

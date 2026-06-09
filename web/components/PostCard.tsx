@@ -8,17 +8,9 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { StarRating } from "@/components/StarRating";
+import { formatDate } from "@/lib/format";
 import type { NotionPost } from "@/types/notion";
-
-// 수집일 한국어 포맷
-function formatDate(dateStr: string | null): string {
-  if (!dateStr) return "";
-  return new Date(dateStr).toLocaleDateString("ko-KR", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-}
 
 interface PostCardProps {
   post: NotionPost;
@@ -43,7 +35,7 @@ export function PostCard({ post, highlighted = false }: PostCardProps) {
           .join(" ")}
       >
         <CardHeader className="pb-2">
-          {/* 중요 배지 (강조 카드만) + 토픽 배지 + 출처 */}
+          {/* 중요 배지 (강조 카드만) + 토픽 배지 + 출처 + 별점 */}
           <div className="flex items-center gap-2 mb-2 flex-wrap">
             {highlighted && (
               <Badge className="text-xs bg-yellow-400 text-yellow-900 dark:bg-yellow-500 dark:text-yellow-950 gap-1 border-0">
@@ -61,6 +53,7 @@ export function PostCard({ post, highlighted = false }: PostCardProps) {
                 {post.source}
               </span>
             )}
+            <StarRating score={post.importance} size="sm" />
           </div>
 
           {/* 제목 */}
@@ -79,13 +72,32 @@ export function PostCard({ post, highlighted = false }: PostCardProps) {
         </CardContent>
 
         <CardFooter className="flex items-center justify-between gap-2 pt-2 flex-wrap">
-          {/* 수집일 */}
-          {post.collectedDate && (
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <CalendarIcon className="w-3 h-3 flex-shrink-0" />
-              <span>{formatDate(post.collectedDate)}</span>
-            </div>
-          )}
+          {/* 날짜 (게시일 우선, 수집일 보조) */}
+          <div className="flex flex-col gap-0.5">
+            {post.publishedDate ? (
+              <>
+                {/* 게시일 — 주 날짜 */}
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <CalendarIcon className="w-3 h-3 flex-shrink-0" />
+                  <span>게시 {formatDate(post.publishedDate)}</span>
+                </div>
+                {/* 수집일 — 보조 (들여쓰기) */}
+                {post.collectedDate && (
+                  <div className="pl-4 text-[11px] text-muted-foreground/60">
+                    수집 {formatDate(post.collectedDate)}
+                  </div>
+                )}
+              </>
+            ) : (
+              /* 게시일 없으면 수집일만 (기존 스타일) */
+              post.collectedDate && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <CalendarIcon className="w-3 h-3 flex-shrink-0" />
+                  <span>수집 {formatDate(post.collectedDate)}</span>
+                </div>
+              )
+            )}
+          </div>
 
           {/* 태그 */}
           {displayTags.length > 0 && (

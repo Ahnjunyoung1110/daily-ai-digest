@@ -10,6 +10,7 @@ export interface NotionPost {
   source: string;        // 출처 select
   link: string | null;   // 원문 링크 url
   collectedDate: string | null; // 수집일 date (YYYY-MM-DD)
+  publishedDate: string | null; // 게시일 date (Notion 업로드일, YYYY-MM-DD)
   canonicalKey: string;  // Canonical Key — 고유 식별자
   important: boolean;    // 중요 checkbox — 상단 강조 섹션 표시 여부
   importance: number;    // 중요도 number — 숫자 기준 정렬용 (미설정 시 0)

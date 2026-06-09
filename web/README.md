@@ -21,7 +21,8 @@ npm run dev   # http://localhost:3000
 
 ### 홈 (`/`)
 
-- **중요 항목 섹션**: Notion `중요` checkbox가 `true`인 항목(매 sync마다 백엔드가 3~5개 마킹)을 페이지 최상단 강조 섹션으로 분리. 노란 테두리 + "중요" 배지.
+- **중요 항목 섹션**: Notion `중요` checkbox가 `true`인 항목(매 sync마다 백엔드가 3~5개 마킹)을 페이지 최상단 강조 섹션으로 분리. 노란 테두리 + "중요" 배지 + 중요도 별점.
+- **중요도 별점**: Notion `중요도`(number, 0~100+) → 5단계 별점(★~★★★★★)으로 환산해 카드마다 표시. `importance=0`이면 미표시. 환산 기준: 40=1★, 55=2★, 70=3★, 90=4★, 90+=5★.
 - **검색**: 제목 · 요약 · 출처 · 태그 대상 실시간 부분일치 검색 (200ms 디바운스). `?q=` URL 동기화.
 - **정렬 7종** (`?sort=` URL 동기화):
 
@@ -39,7 +40,7 @@ npm run dev   # http://localhost:3000
 
 ### 상세 페이지 (`/posts/[slug]`)
 
-Notion 페이지 블록을 렌더링. 이전/다음 글 네비게이션, 원문 링크.
+Notion 페이지 블록을 렌더링. 이전/다음 글 네비게이션, 원문 링크. 메타 영역에 게시일 + 수집일(라벨 구분) + 중요도 별점 표시.
 
 ### 다크모드
 
@@ -64,13 +65,15 @@ Notion 페이지 블록을 렌더링. 이전/다음 글 네비게이션, 원문 
 | `태그` | multi_select | `tags[]` | 카드 배지 |
 | `출처` | select | `source` | 카드 메타 / 정렬 |
 | `링크` | url | `link` | 원문 이동 |
-| `수집일` | date | `collectedDate` | 날짜 표시 / 정렬 |
+| `수집일` | date | `collectedDate` | 날짜 표시(보조) / 정렬 |
+| `게시일` | date | `publishedDate` | 날짜 표시(주) — 백엔드 미반영 시 null, 수집일만 표시 |
 | `상태` | select | `status` | 관리자 집계 |
 | `중요` | checkbox | `important` | 상단 강조 섹션 여부 |
-| `중요도` | number | `importance` | 중요도순 정렬 점수 |
+| `중요도` | number | `importance` | 중요도순 정렬 + 별점 표시 |
 | `Canonical Key` | rich_text | `canonicalKey` | 안정적 upsert 키 |
 
-> `중요도` 프로퍼티가 Notion DB에 없으면 `importance=0` 폴백 — 빌드/런타임 무오류.
+> `중요도` 프로퍼티가 Notion DB에 없으면 `importance=0` 폴백 — 빌드/런타임 무오류.  
+> `게시일` 프로퍼티가 없으면 `publishedDate=null` 폴백 — 수집일만 표시.
 
 ## 아키텍처
 
@@ -86,7 +89,8 @@ app/
 
 components/
   PostsSection.tsx      중요 섹션 + 검색/정렬/토픽 필터 (client)
-  PostCard.tsx          카드 컴포넌트 (highlighted 강조 지원)
+  PostCard.tsx          카드 컴포넌트 (게시일+수집일, 별점, highlighted 강조 지원)
+  StarRating.tsx        중요도 별점 (0~5, importance=0이면 미표시)
   NotionRenderer.tsx    Notion 블록 → JSX
   theme-provider.tsx    next-themes 래퍼 (client)
   layout/
@@ -96,6 +100,7 @@ components/
 lib/
   notion.ts             Notion API 클라이언트 레이어
   sort.ts               정렬 순수 함수 (sortPosts, SORT_OPTIONS)
+  format.ts             formatDate / scoreToStars 공통 유틸
   utils.ts              cn() 헬퍼
 ```
 
