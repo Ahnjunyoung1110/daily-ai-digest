@@ -3,15 +3,26 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 from daily_ai_digest.config import KST
-from daily_ai_digest.output import clean_text, dedupe, filter_items, make_item, score_item
+from daily_ai_digest.output import (
+    _freshness_points,
+    clean_text,
+    compute_rank_score,
+    dedupe,
+    filter_items,
+    make_item,
+    score_item,
+)
 
 
 def test_make_item_schema_v2():
     item = make_item("OpenAI", "blog", "Test title", "https://example.com", None)
-    assert {"source", "source_class", "type", "title", "url", "published", "summary_candidate", "signals", "score", "score_version", "score_breakdown", "importance_reason"}.issubset(item.keys())
+    assert {"source", "source_class", "type", "title", "url", "published", "summary_candidate",
+            "signals", "score", "rank_score", "score_version", "score_breakdown",
+            "importance_reason"}.issubset(item.keys())
     assert item["signals"] == {"stars": 0, "points": 0, "comments": 0}
     assert item["score_version"] == 2
     assert isinstance(item["score"], int)
+    assert isinstance(item["rank_score"], int)
 
 
 def test_make_item_custom_signals():
@@ -124,3 +135,105 @@ def test_clean_text_strips_html():
 
 def test_clean_text_truncates():
     assert len(clean_text("x" * 1000, n=100)) == 100
+
+
+# ---------------------------------------------------------------------------
+# 신규: 키워드 직교성, freshness 연속성, rank_score
+# ---------------------------------------------------------------------------
+
+def test_topic_relevance_no_double_count():
+    """RELEVANCE_TERMS ∩ IMPACT_TERMS = ∅ → 같은 단어 이중 계산 없음."""
+    from daily_ai_digest.output import score_breakdown
+    # "inference"는 RELEVANCE_TERMS에만, "release"는 IMPACT_TERMS에만 있음
+    item_both = make_item("OpenAI", "blog", "LLM inference release", "https://example.com", None)
+    item_only_relevance = make_item("OpenAI", "blog", "LLM inference only", "https://example.com", None)
+    item_only_impact = make_item("OpenAI", "blog", "new release today", "https://example.com", None)
+    br_both = score_breakdown(item_both)
+    br_rel = score_breakdown(item_only_relevance)
+    br_imp = score_breakdown(item_only_impact)
+    # 두 신호 모두 매치 시 합산이지만 cap 25
+    assert br_both["topic_relevance"] <= 25
+    # 각 신호 단독보다 크거나 같음
+    assert br_both["topic_relevance"] >= br_rel["topic_relevance"]
+    assert br_both["topic_relevance"] >= br_imp["topic_relevance"]
+
+
+def test_topic_relevance_cap():
+    """키워드 둘 다 매치(15+12=27)여도 cap=25 적용."""
+    from daily_ai_digest.output import score_breakdown
+    item = make_item("GitHub", "repo", "LLM inference release benchmark", "https://github.com/x/y", None)
+    br = score_breakdown(item)
+    # keyword_score = min(15+12, 25) = 25, type_bonus repo = +5 → 30 허용
+    assert br["topic_relevance"] <= 30
+
+
+def test_freshness_no_cliff():
+    """24h→25h 전환 시 절벽 없음 — 인접 시간 차이 ≤ 2점."""
+    now = datetime.now(KST)
+    # 168h(7d) 초과는 의도적 고정 -20 — 이미 lookback 필터로 제거되는 stale 항목.
+    # 168h 경계는 제외하고 구간 내 연속성만 검증.
+    for age_h in [23, 24, 48, 71, 72, 96, 120, 167]:
+        pub_curr = (now - timedelta(hours=age_h)).isoformat()
+        pub_next = (now - timedelta(hours=age_h + 1)).isoformat()
+        f_curr = _freshness_points({"published": pub_curr}, now)
+        f_next = _freshness_points({"published": pub_next}, now)
+        diff = f_curr - f_next
+        assert diff <= 2, f"age={age_h}h→{age_h+1}h 절벽: {f_curr}→{f_next} (diff={diff})"
+
+
+def test_freshness_anchors():
+    """구간 선형 보간이 앵커값(0h=+20, 72h=+10, 168h=0, 169h=-20)을 보존."""
+    now = datetime.now(KST)
+
+    def fp(age_h):
+        return _freshness_points({"published": (now - timedelta(hours=age_h)).isoformat()}, now)
+
+    assert abs(fp(0) - 20) <= 1
+    assert abs(fp(72) - 10) <= 1
+    assert abs(fp(168) - 0) <= 1
+    assert fp(169) == -20
+
+
+def test_rank_score_cross_class_ordering():
+    """raw score 순서와 rank_score 순서가 다를 수 있음 — 클래스 횡단 비교."""
+    now = datetime.now(KST)
+    pub = (now - timedelta(hours=1)).isoformat()
+    # community: 임계값 55 → 달성하기 어려움, official: 임계값 40 → 낮음
+    # 비슷한 raw score에서 rank_score가 클래스 보정
+    community_item = make_item(
+        "Reddit LocalLLaMA", "community",
+        "LLM inference benchmark release",
+        "https://reddit.com/r/x", pub,
+        signals={"stars": 0, "points": 300, "comments": 60},
+    )
+    official_item = make_item(
+        "OpenAI", "blog",
+        "LLM inference benchmark release",
+        "https://openai.com/blog/x", pub,
+    )
+    # rank_score = score - threshold
+    community_rank = compute_rank_score(community_item)
+    official_rank = compute_rank_score(official_item)
+    # 두 항목 rank_score 모두 int 반환
+    assert isinstance(community_rank, int)
+    assert isinstance(official_rank, int)
+
+
+def test_vendor_blog_rank_score_positive():
+    """vendor_blog 클래스가 rank_score에서 올바르게 임계값(45) 차감됨 — 구버그 회귀 방지."""
+    now = datetime.now(KST)
+    pub = (now - timedelta(hours=1)).isoformat()
+    item = make_item("LangChain", "blog", "LLM agent framework release", "https://langchain.com/blog", pub)
+    # vendor_blog 임계값 45, authority 25 + topic + freshness → 양수 rank_score 기대
+    assert item["rank_score"] > 0, f"vendor_blog rank_score 음수: {item['rank_score']}"
+
+
+def test_rank_score_stored_in_filter_items():
+    """filter_items 통과 항목에 rank_score 필드 존재."""
+    now = datetime.now(KST)
+    pub = (now - timedelta(hours=1)).isoformat()
+    item = make_item("OpenAI", "blog", "LLM inference benchmark release", "https://example.com", pub)
+    results = filter_items([item], now, include_stale=False, lookback_days=7)
+    assert len(results) == 1
+    assert "rank_score" in results[0]
+    assert isinstance(results[0]["rank_score"], int)

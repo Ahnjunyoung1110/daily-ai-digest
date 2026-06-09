@@ -93,34 +93,16 @@ def is_important_item(item: dict) -> bool:
     return _truthy(item.get("important") or item.get("is_important") or item.get("_important"))
 
 
-def _importance_rank(item: dict) -> tuple[int, int, int, int, int]:
-    """Rank items for Notion '중요' fallback when the LLM did not mark 3-5."""
-    score = int(item.get("score") or 0)
-    cls = str(item.get("source_class") or "").lower()
-    typ = str(item.get("type") or "").lower()
-    source = str(item.get("source") or "").lower()
-    signals = item.get("signals") or {}
+def _importance_rank(item: dict) -> tuple[int, int, int]:
+    """rank_score 기반 정렬 키 — 클래스 임계값 마진으로 클래스 횡단 비교 가능.
 
-    authority = 0
-    if cls in {"official", "vendor"}:
-        authority += 35
-    elif cls in {"research", "expert"}:
-        authority += 25
-    elif cls in {"repo", "community"}:
-        authority += 15
-    if typ in {"announcement", "blog", "news"}:
-        authority += 10
-    elif typ == "paper":
-        authority += 8
-    elif typ == "repo":
-        authority += 6
-    if any(name in source for name in ("openai", "anthropic", "google", "deepseek", "meta", "microsoft")):
-        authority += 10
-
-    popularity = int(signals.get("points") or 0) + int(signals.get("comments") or 0) * 2 + min(int(signals.get("stars") or 0), 500)
+    output.py의 compute_rank_score()와 동일 기준을 사용하여 랭킹 이원화 제거.
+    rank_score가 없으면(구형 항목) 0으로 폴백.
+    """
+    rs = int(item.get("rank_score") or 0)
     freshness = int((item.get("score_breakdown") or {}).get("freshness") or 0)
     topic = int((item.get("score_breakdown") or {}).get("topic_relevance") or 0)
-    return (authority + score, popularity, freshness, topic, score)
+    return (rs, freshness, topic)
 
 
 def normalize_important_flags(items: list[dict], min_count: int = 3, max_count: int = 5) -> int:

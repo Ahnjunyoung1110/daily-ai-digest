@@ -35,8 +35,8 @@ src/daily_ai_digest/
 
 주요 함수 위치:
 - `make_item()` — `output.py`. RSS/Reddit/HN/GitHub/HTML 모든 아이템이 이 단일 빌더 사용
-- `score_item()` / `score_breakdown()` — `output.py`. source taxonomy 기반 score v2 사용
-- `filter_items()` — `output.py`. 기본 7일 lookback + freshness weighting + source-class threshold 필터
+- `score_item()` / `score_breakdown()` — `output.py`. source taxonomy 기반 score v2 사용. `compute_rank_score()`로 클래스 횡단 정렬용 `rank_score` 계산
+- `filter_items()` — `output.py`. 기본 7일 lookback + 선형 freshness 감쇠 + source-class threshold 필터
 - `build_result()` — `output.py`. stdout 스키마 조립 (제약: 스키마 변경 시 Hermes 크론 프롬프트도 업데이트 필요)
 - `collect_all()` — `collector.py`. 소스 루프 오케스트레이션
 
@@ -58,3 +58,5 @@ RSS/API sources are stable enough to parse generically. HTML-only sources have s
 The Notion property `중요` is a checkbox used by the frontend to feature current high-impact AI/IT items. The LLM enrichment step may set `important: true` and `importance_reason_ko`, but `notion_sync.py` is the enforcement layer: it normalizes the current sync set to 3-5 important items when possible, maps the flag to the Notion checkbox, and clears stale checked pages that are no longer part of the current sync set.
 
 The Notion property `중요도` is a number field storing the raw `score` value computed by `output.py`'s `score_item()` (sum of source_authority + popularity + topic_relevance + freshness + penalty, range ~0–100+). It is written on every create/update and reflects how the collector ranked each item independently of the LLM-selected `중요` checkbox.
+
+For cross-class ranking and `중요` checkbox selection, `notion_sync.py` uses `rank_score` (= `score - SOURCE_CLASS_THRESHOLDS[source_class]`), which normalizes for differing per-class thresholds. `rank_score` is not written to Notion.

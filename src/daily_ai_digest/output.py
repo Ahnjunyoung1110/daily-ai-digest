@@ -12,6 +12,7 @@ from .sources import (
     IMPACT_TERMS,
     LOW_VALUE_TERMS,
     PROMO_TERMS,
+    RELEVANCE_TERMS,
     SOURCE_CLASS_THRESHOLDS,
     source_class,
 )
@@ -57,12 +58,12 @@ def _freshness_points(item: dict, now: datetime | None) -> int:
     except Exception:
         return 0
     age_hours = max(0.0, (now - pub).total_seconds() / 3600)
-    if age_hours <= 24:
-        return 20
     if age_hours <= 72:
-        return 10
+        # 0h→+20, 72h→+10 구간 선형 보간 — 계단 절벽 제거
+        return int(round(20 - (age_hours / 72) * 10))
     if age_hours <= 168:
-        return 0
+        # 72h→+10, 168h→0 구간 선형 보간
+        return int(round(10 - ((age_hours - 72) / 96) * 10))
     return -20
 
 
@@ -124,15 +125,15 @@ def score_breakdown(item: dict, now: datetime | None = None) -> dict[str, int]:
         elif points >= 30 or comments >= 10:
             popularity += 8
 
-    topic_relevance = 0
-    if AI_TERMS.search(text):
-        topic_relevance += 15
-    if IMPACT_TERMS.search(text):
-        topic_relevance += 12
-    if typ == "paper":
-        topic_relevance += 8
-    if typ == "repo":
-        topic_relevance += 5
+    # 키워드 점수: RELEVANCE_TERMS(기술 주제)와 IMPACT_TERMS(출시 신호)는 상호 배타 집합으로
+    # 정의되어 이중 계산 없음. 합산 상한 25 적용. 타입 보너스는 별도 추가(cap 외).
+    keyword_score = min(
+        (15 if RELEVANCE_TERMS.search(text) else 0)
+        + (12 if IMPACT_TERMS.search(text) else 0),
+        25,
+    )
+    type_bonus = 8 if typ == "paper" else (5 if typ == "repo" else 0)
+    topic_relevance = keyword_score + type_bonus
 
     freshness = _freshness_points(item, now)
 
@@ -155,6 +156,19 @@ def score_breakdown(item: dict, now: datetime | None = None) -> dict[str, int]:
 
 def score_item(item: dict, now: datetime | None = None) -> int:
     return sum(score_breakdown(item, now).values())
+
+
+def compute_rank_score(item: dict) -> int:
+    """클래스 임계값 기준 마진 점수 — 클래스 횡단 비교·정렬용.
+
+    raw score는 클래스마다 임계값이 달라(official=40, community=55 등) 직접 비교가
+    부정확하다. rank_score = score - 클래스임계값 으로 정규화하면 클래스가 달라도
+    '임계값 대비 얼마나 뛰어난가'를 공정하게 비교할 수 있다.
+    Notion `중요도` 컬럼에는 기록하지 않음(제약 #9: raw score 유지).
+    """
+    cls = item.get("source_class") or source_class(item.get("source", ""), item.get("type"))
+    threshold = SOURCE_CLASS_THRESHOLDS.get(cls, SOURCE_CLASS_THRESHOLDS["unknown"])
+    return int(item.get("score") or 0) - threshold
 
 
 def importance_reason(item: dict) -> str:
@@ -192,12 +206,14 @@ def make_item(
         "summary_candidate": clean_text(summary, 500),
         "signals": signals or {"stars": 0, "points": 0, "comments": 0},
         "score": 0,
+        "rank_score": 0,
         "score_version": 2,
         "score_breakdown": {},
         "importance_reason": "",
     }
     item["score_breakdown"] = score_breakdown(item)
     item["score"] = score_item(item)
+    item["rank_score"] = compute_rank_score(item)
     item["importance_reason"] = importance_reason(item)
     return item
 
@@ -205,7 +221,7 @@ def make_item(
 def dedupe(items: list[dict]) -> list[dict]:
     seen = set()
     out = []
-    for it in sorted(items, key=lambda x: (x.get("score") or 0), reverse=True):
+    for it in sorted(items, key=lambda x: (x.get("rank_score") or 0, x.get("score") or 0), reverse=True):
         key = (it.get("canonical_key") or it.get("url") or it.get("title") or "").lower().rstrip("/")
         if not key or key in seen:
             continue
@@ -238,6 +254,7 @@ def filter_items(items: list[dict], now: datetime, include_stale: bool, lookback
         it["source_class"] = source_class(it.get("source", ""), it.get("type"))
         it["score_breakdown"] = score_breakdown(it, now)
         it["score"] = score_item(it, now)
+        it["rank_score"] = compute_rank_score(it)
         it["importance_reason"] = importance_reason(it)
 
         if not include_stale and not _is_recent_enough(it, now, lookback_days):

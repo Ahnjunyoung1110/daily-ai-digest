@@ -101,10 +101,21 @@ AI_TERMS = re.compile(
     r"|open[- ]?weights?|quantization|cuda|gpu|tokenizer|diffusion)\b",
     re.I,
 )
+
+# 점수 변별용 핵심 기술 주제어 — AI_TERMS처럼 광범하지 않고, IMPACT_TERMS와 겹치지 않음.
+# 필터 게이트(output.py)는 여전히 AI_TERMS 사용.
+RELEVANCE_TERMS = re.compile(
+    r"\b(llm|rag|agent|agents|mcp|multimodal|inference|transformer|retrieval"
+    r"|fine[- ]?tuning|reasoning|quantization|diffusion|tokenizer|alignment)\b",
+    re.I,
+)
+
+# 사건/출시 신호어 — RELEVANCE_TERMS와 겹치는 단어(reasoning, multimodal, inference,
+# agent, mcp, fine-tuning, quantization) 제거하여 이중 계산 방지.
 IMPACT_TERMS = re.compile(
     r"\b(release|released|launch|launched|announce|announced|api|sdk|cli|framework|library"
     r"|server|benchmark|eval|leaderboard|open[- ]?source|open[- ]?weights?|pricing|safety"
-    r"|reasoning|multimodal|inference|agent|mcp|fine[- ]?tuning|quantization|paper)\b",
+    r"|paper)\b",
     re.I,
 )
 PROMO_TERMS = re.compile(r"\b(webinar|event|sponsored|customer story|case study|partner)\b", re.I)

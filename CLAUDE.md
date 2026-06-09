@@ -113,15 +113,19 @@ python -m py_compile src/daily_ai_digest/collector.py src/daily_ai_digest/config
 
 ## 스코어링 v2
 
-`output.py`의 `score_item()` 구성:
+`output.py`의 `score_item()` 구성 (5개 항목 합산):
 
 | 항목 | 기준 |
 |---|---|
 | source_authority | official=40, vendor_blog=25, research=18, repo=5, community=0, expert=25 |
 | popularity | source_class별 차등 (HN/Reddit/GitHub stars 기준) |
-| topic_relevance | AI_TERMS=+15, IMPACT_TERMS=+12, paper=+8, repo=+5 |
-| freshness | 24h=+20, 3d=+10, 7d=0, 7d초과=-20 |
+| topic_relevance | `RELEVANCE_TERMS`(기술어)=+15, `IMPACT_TERMS`(출시신호)=+12, 키워드 상한 cap=25, paper=+8, repo=+5 추가 |
+| freshness | 구간 선형 보간: 0h=+20, 72h=+10, 168h=0 (절벽 없음), 168h 초과=-20 |
 | penalty | promo_terms=-12, low_value_terms=-20, 저참여 커뮤니티=-25 |
+
+**키워드 직교화**: `RELEVANCE_TERMS`(핵심 기술 주제어: llm/rag/agent/mcp/multimodal/inference 등)와 `IMPACT_TERMS`(출시 신호어: release/launch/api/benchmark 등)는 상호 배타 집합으로 이중 계산 없음. AI 관련성 게이트는 여전히 광범한 `AI_TERMS` 사용.
+
+**`rank_score` 필드**: `score - SOURCE_CLASS_THRESHOLDS[source_class]` — 클래스 임계값 대비 마진. 클래스 횡단 정렬·중요 선정에 사용. Notion `중요도` 컬럼에는 기록하지 않음(raw score 유지).
 
 SOURCE_CLASS_THRESHOLDS: official=40, vendor_blog=45, community=55, repo=50, research=45, expert=40, unknown=50
 
