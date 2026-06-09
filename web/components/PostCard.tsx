@@ -53,7 +53,7 @@ export function PostCard({ post, highlighted = false }: PostCardProps) {
                 {post.source}
               </span>
             )}
-            <StarRating score={post.importance} size="sm" />
+            <StarRating stars={post.stars} size="sm" />
           </div>
 
           {/* 제목 */}

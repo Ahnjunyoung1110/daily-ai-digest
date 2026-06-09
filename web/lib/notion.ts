@@ -4,6 +4,7 @@
  * 프로퍼티 이름은 모두 한국어 리터럴 (제목/한줄요약/토픽/태그/출처/링크/수집일/게시일/상태/중요/중요도)
  */
 import { Client, isFullPage } from "@notionhq/client";
+import { buildStarScale, starsFromScale } from "@/lib/stars";
 import type { NotionPost, NotionBlock } from "@/types/notion";
 
 // 백엔드 notion_sync.py DEFAULT_DB_ID 와 동일
@@ -105,6 +106,7 @@ function mapPage(page: { id: string; properties: Record<string, any> }): NotionP
     canonicalKey,
     important,
     importance,
+    stars: 0, // 개별 매핑 시점 미정 — queryPosts에서 코퍼스 기준으로 주입
     status,
   };
 }
@@ -144,6 +146,12 @@ async function queryPosts(statusFilter?: string): Promise<NotionPost[]> {
     cursor = response.has_more ? (response.next_cursor ?? undefined) : undefined;
   } while (cursor && posts.length < 500);
 
+  // 코퍼스 전체 기준 상대 분위수로 별 개수 주입
+  const scale = buildStarScale(posts.map((p) => p.importance));
+  posts.forEach((p) => {
+    p.stars = starsFromScale(p.importance, scale);
+  });
+
   return posts;
 }
 
@@ -175,7 +183,20 @@ export async function getPostBySlug(slug: string): Promise<NotionPost | null> {
   try {
     const page = await client.pages.retrieve({ page_id: withDashes(slug) });
     if (isFullPage(page)) {
-      return mapPage(page);
+      const post = mapPage(page);
+      // 별점: 수집완료 전체 코퍼스 기준 동일 척도 적용
+      // (목록과 상세 페이지 별 개수 일치 보장)
+      const allPosts = await getPosts();
+      const match = allPosts.find((p) => p.slug === slug);
+      if (match) {
+        // 코퍼스에서 찾으면 이미 계산된 stars 재사용
+        post.stars = match.stars;
+      } else {
+        // 코퍼스 외 항목(번역필요 등)은 동일 척도로 직접 산출
+        const scale = buildStarScale(allPosts.map((p) => p.importance));
+        post.stars = starsFromScale(post.importance, scale);
+      }
+      return post;
     }
     return null;
   } catch {

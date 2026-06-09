@@ -116,7 +116,7 @@ export default async function PostPage({ params }: PageProps) {
           {/* 출처 */}
           {post.source && <span>{post.source}</span>}
           {/* 별점 */}
-          <StarRating score={post.importance} size="md" />
+          <StarRating stars={post.stars} size="md" />
         </div>
 
         {/* 원문 바로가기 버튼 */}

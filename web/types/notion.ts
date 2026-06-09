@@ -14,6 +14,7 @@ export interface NotionPost {
   canonicalKey: string;  // Canonical Key — 고유 식별자
   important: boolean;    // 중요 checkbox — 상단 강조 섹션 표시 여부
   importance: number;    // 중요도 number — 숫자 기준 정렬용 (미설정 시 0)
+  stars: number;         // 별 개수(0~5) — 코퍼스 내 상대 분위수 기반, notion.ts에서 주입
   status: string;        // 상태 select (수집완료 / 번역필요) — 관리자 대시보드용
 }
 

@@ -1,15 +1,13 @@
 import { StarIcon } from "lucide-react";
-import { scoreToStars } from "@/lib/format";
 
 interface StarRatingProps {
-  score: number;
+  /** 분위수 기반 별 개수(0~5) — notion.ts에서 코퍼스 전체 기준으로 주입된 값 */
+  stars: number;
   size?: "sm" | "md";
 }
 
 // 중요도 별점 컴포넌트 (0별이면 미표시)
-export function StarRating({ score, size = "sm" }: StarRatingProps) {
-  const stars = scoreToStars(score);
-
+export function StarRating({ stars, size = "sm" }: StarRatingProps) {
   // 0별 = 미표시 (Notion 미반영 항목 보호)
   if (stars === 0) return null;
 
@@ -24,12 +22,11 @@ export function StarRating({ score, size = "sm" }: StarRatingProps) {
       {Array.from({ length: 5 }, (_, i) => (
         <StarIcon
           key={i}
-          className={[
-            iconClass,
+          className={`${iconClass} ${
             i < stars
               ? "text-yellow-500 dark:text-yellow-400 fill-current"
-              : "text-muted-foreground/30",
-          ].join(" ")}
+              : "text-muted-foreground/30"
+          }`}
         />
       ))}
     </span>
